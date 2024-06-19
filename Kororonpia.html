@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Babylon.js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+    <script src="https://cdn.babylonjs.com/recast.js"></script>
+    <script src="https://cdn.babylonjs.com/ammo.js"></script>
+    <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+    <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+    <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        
+        #canvasZone {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvasZone">
+        <canvas id="renderCanvas"></canvas>
+    </div>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var startRenderLoop = function (engine, canvas) {
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        };
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function() { 
+            return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+        };
+
+        var createScene = function () {
+            var scene = new BABYLON.Scene(engine);
+            var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 10, -15), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            camera.attachControl(canvas, true);
+            var freeCamera = new BABYLON.FreeCamera("freeCamera", new BABYLON.Vector3(0, 10, -15), scene);
+            freeCamera.setTarget(BABYLON.Vector3.Zero());
+            freeCamera.attachControl(canvas, true);
+
+            var followCamera = new BABYLON.FollowCamera("followCamera", new BABYLON.Vector3(0, 10, -15), scene);
+            followCamera.radius = 10; // Distancia desde la esfera
+            followCamera.heightOffset = 4; // Altura desde la esfera
+            followCamera.rotationOffset = 0; // Ángulo de seguimiento
+            followCamera.cameraAcceleration = 0.05; // Suavidad del seguimiento
+            followCamera.maxCameraSpeed = 10; // Velocidad máxima de la cámara
+
+            var activeCamera = freeCamera;
+            scene.activeCamera = activeCamera;
+
+            var gui = new dat.GUI();
+            var cameraSettings = {
+                follow: false
+            };
+            gui.add(cameraSettings, "follow").onChange(function(value) {
+                if (value) {
+                    activeCamera = followCamera;
+                    scene.activeCamera = activeCamera;
+                } else {
+                    activeCamera = freeCamera;
+                    scene.activeCamera = activeCamera;
+                }
+            });
+
+
+            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            // Crear una esfera invertida para el fondo panorámico
+        var skybox = BABYLON.MeshBuilder.CreateSphere("skyBox", {diameter: 1000, sideOrientation: BABYLON.Mesh.BACKSIDE}, scene);
+        var skyboxMaterial = new BABYLON.StandardMaterial("skyBoxMaterial", scene);
+        var texture = new BABYLON.Texture("mansion2.jpg", scene);
+        texture.coordinatesMode = BABYLON.Texture.SPHERICAL_MODE;
+        texture.uScale = -1;  // Voltear la imagen horizontalmente
+        texture.vScale = -1;  // Voltear la imagen verticalmente si es necesario
+        skyboxMaterial.diffuseTexture = texture;
+        skybox.material = skyboxMaterial;
+
+            var sphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 2, scene);
+            sphere.position.y = 2;
+            var textura1 = new BABYLON.StandardMaterial("textura", scene);
+            textura1.diffuseTexture = new BABYLON.Texture("Boo_Ball.webp", scene);
+            // Asignar el material a la plataforma
+            sphere.material = textura1;
+            
+            followCamera.lockedTarget = sphere; // La cámara de seguimiento seguirá a esta esfera
+
+            //una sphere que aparece y desaparece
+              // Crear esfera con textura
+              var spherefantas = BABYLON.MeshBuilder.CreateSphere("sphere", { diameter: 1 }, scene);
+            var material = new BABYLON.StandardMaterial("sphereMaterial", scene);
+            material.diffuseTexture = new BABYLON.Texture("telball_0.png", scene); // Cambia la ruta según tu textura
+            spherefantas.material = material;
+            spherefantas.position.y = 10; // Inicialmente la posición y de la esfera
+            spherefantas.position.x = 70; 
+            spherefantas.position.z = 40; 
+
+            // Animación de flotar horizontalmente
+            var floatAnimation = new BABYLON.Animation("floatAnimation", "position.x", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            var floatKeys = [];
+            floatKeys.push({ frame: 0, value: -4 });  // Inicio en x = -4
+            floatKeys.push({ frame: 60, value: 4 });  // Pico en x = 4
+            floatKeys.push({ frame: 120, value: -4 }); // Vuelta a -4
+            floatAnimation.setKeys(floatKeys);
+            spherefantas.animations.push(floatAnimation);
+
+            // Animación de desaparecer/aparecer
+            var visibilityAnimation = new BABYLON.Animation("visibilityAnimation", "visibility", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            var visibilityKeys = [];
+            visibilityKeys.push({ frame: 0, value: 1 }); // visible
+            visibilityKeys.push({ frame: 30, value: 0 }); // invisible
+            visibilityKeys.push({ frame: 60, value: 1 }); // visible
+            visibilityKeys.push({ frame: 90, value: 0 }); // invisible
+            visibilityKeys.push({ frame: 120, value: 1 }); // visible
+            visibilityKeys.push({ frame: 150, value: 0 }); // invisible
+            visibilityKeys.push({ frame: 180, value: 1 }); // visible
+            visibilityAnimation.setKeys(visibilityKeys);
+            spherefantas.animations.push(visibilityAnimation);
+
+            // Comenzar las animaciones
+            scene.beginAnimation(spherefantas, 0, 180, true); // Animación de flotar y desaparecer/aparecer
+            var visibilitySwitch = function () {
+                // Se ejecuta al final de la animación de visibilidad
+                spherefantas.isVisible = !spherefantas.isVisible; // Alternar visibilidad
+                if (spherefantas.isVisible) {
+                    // Si la esfera se vuelve visible de nuevo, comenzar la animación de desaparecer/aparecer
+                    scene.beginAnimation(spherefantas, 0, 180, true);
+                }
+            };
+
+            // Registrar el callback para la animación de visibilidad
+            visibilityAnimation.addEvent(new BABYLON.AnimationEvent(
+                120, // frame en el que ocurre el evento (final de la animación de visibilidad)
+                visibilitySwitch
+            ));
+
+            //vela que aparece en el canvas para adorno
+            var vela = function (position) {
+                var candle = BABYLON.MeshBuilder.CreateCylinder("candle", {diameter: 0.5, height: 2}, scene);
+                candle.position = position;
+
+                var candleMaterial = new BABYLON.StandardMaterial("candleMaterial", scene);
+                candleMaterial.diffuseColor = new BABYLON.Color3(1, 1, 0.8);
+                candle.material = candleMaterial;
+
+                return candle;
+            };
+
+            var candlePosition1 = new BABYLON.Vector3(12, 1, 50); // Posición de la primera vela
+            var vela1 = vela(candlePosition1);
+
+            var candlePosition2 = new BABYLON.Vector3(-20, 1, 30); // Posición de la segunda vela
+            var vela2 = vela(candlePosition2);
+
+            var createFlame = function (position) {
+                var particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene);
+                particleSystem.particleTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/flare.png", scene);
+
+                particleSystem.emitter = position;
+                particleSystem.minEmitBox = new BABYLON.Vector3(0, 0, 0);
+                particleSystem.maxEmitBox = new BABYLON.Vector3(0, 0, 0);
+
+                particleSystem.color1 = new BABYLON.Color4(1, 0.5, 0, 1.0);
+                particleSystem.color2 = new BABYLON.Color4(1, 0, 0, 1.0);
+                particleSystem.colorDead = new BABYLON.Color4(0, 0, 0, 0.0);
+
+                particleSystem.minSize = 0.1;
+                particleSystem.maxSize = 0.5;
+
+                particleSystem.minLifeTime = 0.2;
+                particleSystem.maxLifeTime = 0.5;
+
+                particleSystem.emitRate = 1000;
+
+                particleSystem.direction1 = new BABYLON.Vector3(0, 1, 0);
+                particleSystem.direction2 = new BABYLON.Vector3(0, 1, 0);
+
+                particleSystem.minEmitPower = 1;
+                particleSystem.maxEmitPower = 3;
+                particleSystem.updateSpeed = 0.01;
+
+                particleSystem.start();
+            };
+
+            createFlame(new BABYLON.Vector3(candlePosition1.x, 2.5, candlePosition1.z)); // Usamos la posición x y z de la primera vela
+            createFlame(new BABYLON.Vector3(candlePosition2.x, 2.5, candlePosition2.z)); // Usamos la posición x y z de la segunda vela
+
+            var animateCandle = function (candle) {
+                var animation = new BABYLON.Animation("candleFloat", "position.y", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                var keys = [];
+                keys.push({ frame: 0, value: candle.position.y });
+                keys.push({ frame: 30, value: candle.position.y + 0.2 });
+                keys.push({ frame: 60, value: candle.position.y });
+
+                animation.setKeys(keys);
+                candle.animations.push(animation);
+
+                scene.beginAnimation(candle, 0, 60, true);
+            };
+
+            animateCandle(vela1);
+            animateCandle(vela2);
+
+            //otras velas
+
+            // Función para crear una vela
+var vela = function (position) {
+    var candle = BABYLON.MeshBuilder.CreateCylinder("candle", {diameter: 0.5, height: 2}, scene);
+    candle.position = position;
+
+    var candleMaterial = new BABYLON.StandardMaterial("candleMaterial", scene);
+    candleMaterial.diffuseColor = new BABYLON.Color3(1, 1, 0.8);
+    candle.material = candleMaterial;
+
+    return candle;
+};
+
+// Posiciones para las velas
+var candlePosition3 = new BABYLON.Vector3(37, 1, -50); // Posición de la tercera vela
+var vela3 = vela(candlePosition3);
+
+var candlePosition4 = new BABYLON.Vector3(10, 1, -30); // Posición de la cuarta vela
+var vela4 = vela(candlePosition4);
+
+// Función para crear una llama
+var createFlame = function (position) {
+    var particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene);
+    particleSystem.particleTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/flare.png", scene);
+
+    particleSystem.emitter = position;
+    particleSystem.minEmitBox = new BABYLON.Vector3(0, 0, 0);
+    particleSystem.maxEmitBox = new BABYLON.Vector3(0, 0, 0);
+
+    particleSystem.color1 = new BABYLON.Color4(1, 0.5, 0, 1.0);
+    particleSystem.color2 = new BABYLON.Color4(1, 0, 0, 1.0);
+    particleSystem.colorDead = new BABYLON.Color4(0, 0, 0, 0.0);
+
+    particleSystem.minSize = 0.1;
+    particleSystem.maxSize = 0.5;
+
+    particleSystem.minLifeTime = 0.2;
+    particleSystem.maxLifeTime = 0.5;
+
+    particleSystem.emitRate = 1000;
+
+    particleSystem.direction1 = new BABYLON.Vector3(0, 1, 0);
+    particleSystem.direction2 = new BABYLON.Vector3(0, 1, 0);
+
+    particleSystem.minEmitPower = 1;
+    particleSystem.maxEmitPower = 3;
+    particleSystem.updateSpeed = 0.01;
+
+    particleSystem.start();
+};
+
+// Crear llamas para las nuevas velas
+createFlame(new BABYLON.Vector3(candlePosition3.x, 2.5, candlePosition3.z)); // Usamos la posición x y z de la tercera vela
+createFlame(new BABYLON.Vector3(candlePosition4.x, 2.5, candlePosition4.z)); // Usamos la posición x y z de la cuarta vela
+
+// Función para animar una vela
+var animateCandle = function (candle) {
+    var animation = new BABYLON.Animation("candleFloat", "position.y", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+    var keys = [];
+    keys.push({ frame: 0, value: candle.position.y });
+    keys.push({ frame: 30, value: candle.position.y + 0.2 });
+    keys.push({ frame: 60, value: candle.position.y });
+
+    animation.setKeys(keys);
+    candle.animations.push(animation);
+
+    scene.beginAnimation(candle, 0, 60, true);
+};
+
+// Animar las nuevas velas
+animateCandle(vela3);
+animateCandle(vela4);
+
+
+            var platform = BABYLON.Mesh.CreateBox("platform1", 16, scene);
+            platform.scaling = new BABYLON.Vector3(1, 0.1, 1);
+            platform.position.y = 0;
+
+            //textura para platform
+            var textura = new BABYLON.StandardMaterial("textura", scene);
+            textura.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+            // Asignar el material a la plataforma
+            platform.material = textura;
+
+            //escaleras
+
+            var platform2 = BABYLON.Mesh.CreateBox("platform1", 16, scene);
+            platform2.scaling = new BABYLON.Vector3(1, 0.1, 1);
+            platform2.position.y = -47;
+            platform2.position.x = -14;
+            platform2.position.z = -40;
+
+            //textura para platform
+            var textura = new BABYLON.StandardMaterial("textura", scene);
+            textura.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+            // Asignar el material a la plataforma
+            platform2.material = textura;
+
+
+            //para que la sphere pueda regresar a su lugar de inicio
+
+            scene.registerBeforeRender(function() {
+                // Comprueba si la esfera ha caído por debajo de -50
+                if (sphere.position.y < -100) {
+                    // Reinicia la posición de la esfera
+                    sphere.position = new BABYLON.Vector3(0, 2, 0);
+                    // Opcional: Reinicia la velocidad de la esfera para evitar que siga cayendo
+                    sphere.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
+                    sphere.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
+                }
+            });
+
+           // Crear plataforma circular con grosor
+           var platformcir = BABYLON.MeshBuilder.CreateCylinder('platformcir', { diameter: 6, height: 0.1, tessellation: 24 }, scene);
+            platformcir.position.y = -45; // Posición inicial de la plataforma
+            platformcir.position.x = -15;
+            platformcir.position.z = -10;
+
+            var textura11 = new BABYLON.StandardMaterial("textura", scene);
+            textura11.diffuseTexture = new BABYLON.Texture("piedra.jpg", scene);
+            // Asignar el material a la plataforma
+            platformcir.material = textura11;
+
+            platformcir.checkCollisions = true;
+
+            // Crear esfera
+            var spheredos = BABYLON.MeshBuilder.CreateSphere('spheredos', { diameter: 2 }, scene);
+            spheredos.position.y = -44; // Posición inicial de la esfera
+            spheredos.checkCollisions = true;
+            var textura12 = new BABYLON.StandardMaterial("textura", scene);
+            textura12.diffuseTexture = new BABYLON.Texture("ojos.jpg", scene);
+            // Asignar el material a la plataforma
+            spheredos.material = textura12;
+
+            // Asignar físicas a la esfera y la plataforma
+            spheredos.physicsImpostor = new BABYLON.PhysicsImpostor(spheredos, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.9 }, scene);
+            platformcir.physicsImpostor = new BABYLON.PhysicsImpostor(platformcir, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+            // Movimiento circular de la esfera
+            var radius = 3; // Radio de la circunferencia
+            var angle = 0; // Ángulo inicial
+
+            scene.registerBeforeRender(function() {
+                // Calcula la posición circular con respecto a la plataforma
+                var posX = platformcir.position.x + radius * Math.cos(angle);
+                var posZ = platformcir.position.z + radius * Math.sin(angle);
+
+                spheredos.position.x = posX;
+                spheredos.position.z = posZ;
+
+                // Incrementa el ángulo para que la esfera siga moviéndose en círculo
+                angle += 0.02; // Velocidad angular
+            });
+
+             // Crear segunda plataforma circular con grosor
+             var platformcir2 = BABYLON.MeshBuilder.CreateCylinder('platformcir2', { diameter: 6, height: 0.1, tessellation: 24 }, scene);
+            platformcir2.position.y = -45; // Posición inicial de la plataforma 2
+            platformcir2.position.x = -15; // Posición en el eje X para separarla de la primera plataforma
+            platformcir2.position.z = -19;
+            platformcir2.checkCollisions = true;
+
+            var textura11 = new BABYLON.StandardMaterial("textura", scene);
+            textura11.diffuseTexture = new BABYLON.Texture("piedra.jpg", scene);
+            // Asignar el material a la plataforma
+            platformcir2.material = textura11;
+            
+
+            // Crear segunda esfera
+            var spheredos2 = BABYLON.MeshBuilder.CreateSphere('spheredos2', { diameter: 2 }, scene);
+            spheredos2.position.y = -44; // Posición inicial de la esfera 2
+            spheredos2.position.x = platformcir2.position.x; // Misma posición inicial que la plataforma 2
+            spheredos2.checkCollisions = true;
+            var textura12 = new BABYLON.StandardMaterial("textura", scene);
+            textura12.diffuseTexture = new BABYLON.Texture("ojos.jpg", scene);
+            // Asignar el material a la plataforma
+            spheredos2.material = textura12;
+
+            // Asignar físicas a la esfera y la plataforma 2
+            spheredos2.physicsImpostor = new BABYLON.PhysicsImpostor(spheredos2, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.9 }, scene);
+            platformcir2.physicsImpostor = new BABYLON.PhysicsImpostor(platformcir2, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+            // Movimiento circular de la esfera 2
+            var radius2 = 3; // Radio de la circunferencia
+            var angle2 = 0; // Ángulo inicial
+
+            scene.registerBeforeRender(function() {
+                // Calcula la posición circular con respecto a la plataforma 2
+                var posX2 = platformcir2.position.x + radius2 * Math.cos(angle2);
+                var posZ2 = platformcir2.position.z + radius2 * Math.sin(angle2);
+
+                spheredos2.position.x = posX2;
+                spheredos2.position.z = posZ2;
+
+                // Incrementa el ángulo para que la esfera siga moviéndose en círculo
+                angle2 += 0.02; // Velocidad angular
+            });
+
+            // Crear tercera plataforma circular con grosor
+            var platformcir3 = BABYLON.MeshBuilder.CreateCylinder('platformcir3', { diameter: 6, height: 0.1, tessellation: 24 }, scene);
+            platformcir3.position.y = -45; // Posición inicial de la plataforma 3
+            platformcir3.position.x = -15; // Posición en el eje X para separarla de la primera plataforma
+            platformcir3.position.z = -27;
+
+            var textura11 = new BABYLON.StandardMaterial("textura", scene);
+            textura11.diffuseTexture = new BABYLON.Texture("piedra.jpg", scene);
+            // Asignar el material a la plataforma
+            platformcir3.material = textura11;
+            
+            platformcir3.checkCollisions = true;
+
+            // Crear tercera esfera
+            var sphere3 = BABYLON.MeshBuilder.CreateSphere('sphere3', { diameter: 2 }, scene);
+            sphere3.position.y = -44; // Posición inicial de la esfera 3
+            sphere3.position.x = platformcir3.position.x; // Misma posición inicial que la plataforma 3
+            sphere3.checkCollisions = true;
+            var textura12 = new BABYLON.StandardMaterial("textura", scene);
+            textura12.diffuseTexture = new BABYLON.Texture("ojos.jpg", scene);
+            // Asignar el material a la plataforma
+            sphere3.material = textura12;
+
+            // Asignar físicas a la tercera esfera y la tercera plataforma
+            sphere3.physicsImpostor = new BABYLON.PhysicsImpostor(sphere3, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.9 }, scene);
+            platformcir3.physicsImpostor = new BABYLON.PhysicsImpostor(platformcir3, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+            // Movimiento circular de la esfera 3
+            var radius3 = 3; // Radio de la circunferencia
+            var angle3 = 0; // Ángulo inicial
+
+            scene.registerBeforeRender(function() {
+                // Calcula la posición circular con respecto a la plataforma 3
+                var posX3 = platformcir3.position.x + radius3 * Math.cos(angle3);
+                var posZ3 = platformcir3.position.z + radius3 * Math.sin(angle3);
+
+                sphere3.position.x = posX3;
+                sphere3.position.z = posZ3;
+
+                // Incrementa el ángulo para que la esfera siga moviéndose en círculo
+                angle3 += 0.02; // Velocidad angular
+            });
+
+    
+            var inclinedPlatform = BABYLON.Mesh.CreateBox("inclinedPlatform", 9, scene);
+            inclinedPlatform.scaling = new BABYLON.Vector3(2.5, 0.1, 1);
+            inclinedPlatform.position.x = 17;
+            inclinedPlatform.position.y = 0;
+            inclinedPlatform.rotation.z = BABYLON.Tools.ToRadians(1);
+
+            var textura2 = new BABYLON.StandardMaterial("textura", scene);
+            textura.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+            // Asignar el material a la plataforma
+            inclinedPlatform.material = textura;
+
+            //paredes para la inclinedplatform
+
+// Inicializar el motor de física
+  scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.CannonJSPlugin());
+
+// Inicializar el motor de física
+var gravityVector = new BABYLON.Vector3(0, -9.81, 0);
+var physicsPlugin = new BABYLON.CannonJSPlugin();
+scene.enablePhysics(gravityVector, physicsPlugin);
+
+// Crear material para la plataforma
+var platformMaterial = new BABYLON.StandardMaterial("platformMaterial", scene);
+platformMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+// Crear una plataforma pared con física
+var plataformaPared = BABYLON.MeshBuilder.CreateBox("plataformaPared", { width: 20, depth: 1, height: 2 }, scene);
+plataformaPared.material = platformMaterial;
+plataformaPared.position.y = 1; // Ajustar la posición para que esté en el aire
+plataformaPared.position.x = 18; 
+plataformaPared.position.z = 5; 
+
+// Añadir física a la plataforma
+plataformaPared.physicsImpostor = new BABYLON.PhysicsImpostor(plataformaPared, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+// Cargar textura local para la plataforma
+var textura = new BABYLON.StandardMaterial("textura", scene);
+textura.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+plataformaPared.material = textura;
+
+//otras paredes
+var plataformapared3 = BABYLON.MeshBuilder.CreateBox("plataformapared3", { width: 50, depth: 1, height: 2 }, scene);
+plataformapared3.material = platformMaterial;
+plataformapared3.position.y = -43; // Ajustar la posición para que esté en el aire
+plataformapared3.position.x = -5; // Cambiar la posición x para que no se superponga con la primera
+plataformapared3.position.z = 5; 
+
+// Añadir física a la plataforma pared3
+plataformapared3.physicsImpostor = new BABYLON.PhysicsImpostor(plataformapared3, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+// Cargar textura local para la plataforma pared3
+var textura3 = new BABYLON.StandardMaterial("textura3", scene);
+textura3.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+plataformapared3.material = textura3;
+
+// Asegurarse de que la textura se aplica correctamente
+textura3.diffuseTexture.uScale = 1; // Ajustar la escala en u si es necesario
+textura3.diffuseTexture.vScale = 1; // Ajustar la escala en v si es necesario
+
+var plataformaPared4 = BABYLON.MeshBuilder.CreateBox("plataformaPared4", { width: 30, depth: 1, height: 2 }, scene);
+plataformaPared4.material = platformMaterial;
+plataformaPared4.position.y = -43; // Ajustar la posición para que esté en el aire
+plataformaPared4.position.x = 5; // Cambiar la posición x para que no se superponga con las otras
+plataformaPared4.position.z = -5;
+
+// Añadir física a la plataforma pared4
+plataformaPared4.physicsImpostor = new BABYLON.PhysicsImpostor(plataformaPared4, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+// Cargar textura local para la plataforma pared4
+var textura4 = new BABYLON.StandardMaterial("textura4", scene);
+textura4.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+plataformaPared4.material = textura4;
+
+// Asegurarse de que la textura se aplica correctamente
+textura4.diffuseTexture.uScale = 1; // Ajustar la escala en u si es necesario
+textura4.diffuseTexture.vScale = 1; // Ajustar la escala en v si es necesario
+
+// Textura para plataforma
+var textura10 = new BABYLON.StandardMaterial("textura", scene);
+textura10.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+plataformaPared.material = textura10;
+
+var plataformaPared5 = BABYLON.MeshBuilder.CreateBox("plataformaPared5", { width: 30, depth: 1, height: 2 }, scene);
+plataformaPared5.material = platformMaterial;
+plataformaPared5.position.y = -43; // Ajustar la posición para que esté en el aire
+plataformaPared5.position.x = 35; // Cambiar la posición x para que no se superponga con las otras
+plataformaPared5.position.z = 15;
+
+// Añadir física a la plataforma pared5
+plataformaPared5.physicsImpostor = new BABYLON.PhysicsImpostor(plataformaPared5, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+// Cargar textura local para la plataforma pared5
+var textura5 = new BABYLON.StandardMaterial("textura5", scene);
+textura5.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+plataformaPared5.material = textura5;
+
+// Asegurarse de que la textura se aplica correctamente
+textura5.diffuseTexture.uScale = 1; // Ajustar la escala en u si es necesario
+textura5.diffuseTexture.vScale = 1; // Ajustar la escala en v si es necesario
+
+var plataformaPared6 = BABYLON.MeshBuilder.CreateBox("plataformaPared6", { width: 30, depth: 1, height: 2 }, scene);
+plataformaPared6.material = platformMaterial;
+plataformaPared6.position.y = -43; // Ajustar la posición para que esté en el aire
+plataformaPared6.position.x = 35; // Cambiar la posición x para que no se superponga con las otras
+plataformaPared6.position.z = -15;
+
+// Añadir física a la plataforma pared6
+plataformaPared6.physicsImpostor = new BABYLON.PhysicsImpostor(plataformaPared6, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+// Cargar textura local para la plataforma pared6
+var textura6 = new BABYLON.StandardMaterial("textura6", scene);
+textura6.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+plataformaPared6.material = textura6;
+
+// Asegurarse de que la textura se aplica correctamente
+textura6.diffuseTexture.uScale = 1; // Ajustar la escala en u si es necesario
+textura6.diffuseTexture.vScale = 1; // Ajustar la escala en v si es necesario
+
+// Crear otra plataformapared2
+// Inicializar el motor de física
+var gravityVector = new BABYLON.Vector3(0, -9.81, 0);
+var physicsPlugin = new BABYLON.CannonJSPlugin();
+scene.enablePhysics(gravityVector, physicsPlugin);
+
+// Crear material para la plataforma
+var platformMaterial = new BABYLON.StandardMaterial("platformMaterial", scene);
+platformMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+// Crear una plataforma pared con física (Primera plataforma)
+var plataformaPared1 = BABYLON.MeshBuilder.CreateBox("plataformaPared1", { width: 20, depth: 1, height: 2 }, scene);
+plataformaPared1.material = platformMaterial;
+plataformaPared1.position.y = 1; // Ajustar la posición para que esté en el aire
+plataformaPared1.position.x = 18; 
+plataformaPared1.position.z = -5; 
+
+// Añadir física a la plataforma
+plataformaPared1.physicsImpostor = new BABYLON.PhysicsImpostor(plataformaPared1, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+// Cargar textura local para la plataforma
+var textura1 = new BABYLON.StandardMaterial("textura1", scene);
+textura1.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+plataformaPared1.material = textura1;
+
+// Asignar la plataforma a la escena
+scene.addMesh(plataformaPared1);
+
+               // Crear plataforma curva
+        var platformcur = BABYLON.MeshBuilder.CreateTorus("platformcur", {thickness: 0.3, diameter: 10, tessellation: 100}, scene);
+        platformcur.rotation.x = Math.PI / 2;
+        platformcur.rotation.y = Math.PI / 2;
+        platformcur.material = new BABYLON.StandardMaterial("platformMat", scene);
+        platformcur.material.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+        platformcur.position.x = 10; 
+        platformcur.position.y = -45; 
+         
+        //esto es es parte de la plataforma larga
+          // Crear una plataforma
+          var platformWidth = 50;  // Ancho de la plataforma
+            var platformLength = 10; // Largo de la plataforma
+
+        
+        //plataforma larga
+        var platformlar = BABYLON.MeshBuilder.CreateBox("platformlenght", {
+                width: platformWidth,
+                height: 1,
+                depth: platformLength
+            }, scene);
+            platformlar.position.x = -5; // Ajuste la posición para que quede en el suelo
+            platformlar.position.y = -45; // Ajuste la posición para que quede en el suelo
+
+            var textura = new BABYLON.StandardMaterial("textura", scene);
+            textura.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+            // Asignar el material a la plataforma
+            platformlar.material = textura;
+
+
+            //crear los arcos de la plataforma larga:
+              // Crear puntos para el arco
+            var radius = 4;
+            const tubeThickness = 0.3; // Grosor del tubo
+            const points = [];
+            const segments = 60; // Número de segmentos para suavidad del arco
+
+            for (let i = 0; i <= segments; i++) {
+                const angle = Math.PI * i / segments; // Dividir el arco en segmentos
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                points.push(new BABYLON.Vector3(x, y, 0));
+            }
+
+            // Crear la plataforma del laberinto
+            const platformlab = BABYLON.MeshBuilder.CreateBox('platformlab', {width: 30, height: 1, depth: 30}, scene);
+            platformlab.position.y = -45; 
+            platformlab.position.x = 35;
+            platformlab.checkCollisions = true;
+            platformlab.physicsImpostor = new BABYLON.PhysicsImpostor(platformlab, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+            var textura = new BABYLON.StandardMaterial("textura", scene);
+            textura.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+            // Asignar el material a la plataforma
+            platformlab.material = textura;
+
+            
+        
+            // crear plataforma curva2
+  
+        //plataforma movil ayuda
+  
+            // Crear la plataforma móvil
+            var movilplatform = BABYLON.MeshBuilder.CreateBox('movilplatform', { height: 1, width: 1, depth: 1 }, scene);
+            movilplatform.position.x = 40;
+            movilplatform.position.z = 1;
+            movilplatform.position.y = 30;
+            var textura = new BABYLON.StandardMaterial("textura", scene);
+textura.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+movilplatform.material = textura;
+
+            movilplatform.physicsImpostor = new BABYLON.PhysicsImpostor(movilplatform, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+
+            // Configurar el movimiento vertical de la plataforma
+            var startY = -4;
+            var endY = 4;
+            var speed = 0.1;
+            var forward = true;
+
+            scene.registerBeforeRender(function() {
+                if (forward) {
+                    movilplatform.position.y += speed;
+                    if (movilplatform.position.y >= endY) {
+                        forward = false;
+                    }
+                } else {
+                    movilplatform.position.y -= speed;
+                    if (movilplatform.position.y <= startY) {
+                        forward = true;
+                    }
+                }
+
+                var deltaPosition = new BABYLON.Vector3(0, speed * (forward ? 1 : -1), 0);
+            movilplatform.physicsImpostor.setDeltaPosition(deltaPosition);
+
+            var velocity = new BABYLON.Vector3(0, speed * (forward ? 1 : -1), 0);
+            scene.meshes.forEach(function(mesh) {
+                if (mesh !== movilplatform && mesh !== skybox && mesh.intersectsMesh(movilplatform, true)) {
+                    mesh.position.addInPlace(deltaPosition);
+                    if (mesh.physicsImpostor) {
+                        mesh.physicsImpostor.setLinearVelocity(velocity);
+                        }
+                    }
+                });
+            });
+            scene.enablePhysics();
+
+          
+         //movil plataforma ya hecha
+         var movinPlatform2 = BABYLON.Mesh.CreateBox("platform1", 13, scene);
+            movinPlatform2.scaling = new BABYLON.Vector3(1, 0.1, 1);
+            movinPlatform2.position.y = 30;
+            movinPlatform2.position.x = 35;
+            movinPlatform2.position.z = 1;
+
+            var textura = new BABYLON.StandardMaterial("textura", scene);
+textura.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
+movinPlatform2.material = textura;
+
+ // Configurar física de la plataforma
+        platformcur.physicsImpostor = new BABYLON.PhysicsImpostor(platformcur, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+        platformlab.physicsImpostor = new BABYLON.PhysicsImpostor(platformlab, BABYLON.PhysicsImpostor.MeshImpostor, { mass: 0, restitution: 0.9 }, scene);
+        platformlar.physicsImpostor = new BABYLON.PhysicsImpostor(platformlar, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+        sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.9 }, scene);
+        platform.physicsImpostor = new BABYLON.PhysicsImpostor(platform, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+        platform2.physicsImpostor = new BABYLON.PhysicsImpostor(platform2, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+        movinPlatform2.physicsImpostor = new BABYLON.PhysicsImpostor(movinPlatform2, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+        inclinedPlatform.physicsImpostor = new BABYLON.PhysicsImpostor(inclinedPlatform, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+           
+
+            window.addEventListener("keydown", function (event) {
+                var forceMagnitude = 10;
+                var sphereVelocity = sphere.physicsImpostor.getLinearVelocity();
+
+                switch (event.key) {
+                    case "w":
+                        sphere.physicsImpostor.setLinearVelocity(new BABYLON.Vector3(sphereVelocity.x, sphereVelocity.y, sphereVelocity.z - forceMagnitude));
+                        break;
+                    case "s":
+                        sphere.physicsImpostor.setLinearVelocity(new BABYLON.Vector3(sphereVelocity.x, sphereVelocity.y, sphereVelocity.z + forceMagnitude));
+                        break;
+                    case "a":
+                        sphere.physicsImpostor.setLinearVelocity(new BABYLON.Vector3(sphereVelocity.x - forceMagnitude, sphereVelocity.y, sphereVelocity.z));
+                        break;
+                    case "d":
+                        sphere.physicsImpostor.setLinearVelocity(new BABYLON.Vector3(sphereVelocity.x + forceMagnitude, sphereVelocity.y, sphereVelocity.z));
+                        break;
+                }
+            });
+            
+            const makeCurve = (range, nbSteps) => {
+                const path = [];
+                const stepSize = range / nbSteps;
+                for (let i = -range / 2; i < range / 2; i += stepSize ) {
+                    path.push( new BABYLON.Vector3(5 * Math.sin(i * nbSteps / 400), i, 5 * Math.cos(i *nbSteps / 400)) );
+                }
+                return path;
+            };
+
+            const curve = makeCurve(40, 100);
+            const tube = BABYLON.MeshBuilder.CreateTube("tube", {path: curve, radius: 2, sideOrientation: BABYLON.Mesh.DOUBLESIDE}, scene);
+            tube.position = new BABYLON.Vector3(40, -18, -8); // Cambiar la posición a la deseada
+
+            // Habilitar motor de física
+            scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.CannonJSPlugin());
+
+            // Asignar impostor de física a la tubería
+            tube.physicsImpostor = new BABYLON.PhysicsImpostor(tube, BABYLON.PhysicsImpostor.MeshImpostor, { mass: 0, restitution: 0.9 }, scene);
+            const tubeMaterial = new BABYLON.StandardMaterial("tubeMaterial", scene);
+            tubeMaterial.diffuseTexture = new BABYLON.Texture("tuberia.jpg", scene); // Asegúrate de que "texture.jpg" está en el directorio correcto
+            tube.material = tubeMaterial;
+
+            return scene;
+        };
+
+        window.initFunction = async function() {
+            var asyncEngineCreation = async function() {
+                try {
+                    return createDefaultEngine();
+                } catch(e) {
+                    console.log("the available createEngine function failed. Creating the default engine instead");
+                    return createDefaultEngine();
+                }
+            };
+
+            window.engine = await asyncEngineCreation();
+            if (!engine) throw 'engine should not be null.';
+            startRenderLoop(engine, canvas);
+            window.scene = createScene();
+        };
+
+        initFunction().then(() => { 
+            sceneToRender = scene;
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+            moveObjects();
+        });
+    </script>
+</body>
+</html>
