@@ -623,15 +623,6 @@ plataformaPared1.material = textura1;
 
 // Asignar la plataforma a la escena
 scene.addMesh(plataformaPared1);
-
-               // Crear plataforma curva
-        var platformcur = BABYLON.MeshBuilder.CreateTorus("platformcur", {thickness: 0.3, diameter: 10, tessellation: 100}, scene);
-        platformcur.rotation.x = Math.PI / 2;
-        platformcur.rotation.y = Math.PI / 2;
-        platformcur.material = new BABYLON.StandardMaterial("platformMat", scene);
-        platformcur.material.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
-        platformcur.position.x = 10; 
-        platformcur.position.y = -45; 
          
         //esto es es parte de la plataforma larga
           // Crear una plataforma
@@ -744,7 +735,6 @@ textura.diffuseTexture = new BABYLON.Texture("Madera.jpg", scene);
 movinPlatform2.material = textura;
 
  // Configurar física de la plataforma
-        platformcur.physicsImpostor = new BABYLON.PhysicsImpostor(platformcur, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
         platformlab.physicsImpostor = new BABYLON.PhysicsImpostor(platformlab, BABYLON.PhysicsImpostor.MeshImpostor, { mass: 0, restitution: 0.9 }, scene);
         platformlar.physicsImpostor = new BABYLON.PhysicsImpostor(platformlar, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
         sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.9 }, scene);
